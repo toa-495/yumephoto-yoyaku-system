@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="robots" content="noindex,nofollow"/>
+  <title>予約リンク作成（社内）</title>
+  <style>
+    :root{ --bg:#f6f7fb; --card:#fff; --text:#222; --muted:#666; --line:#e7e7ef; --accent:#2b6cff; }
+    body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:1000px; margin:0 auto; padding:20px; }
+    .card{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 6px 20px rgba(0,0,0,.06); }
+    h1{ font-size:20px; margin:0 0 12px; }
+    h2{ font-size:16px; margin:16px 0 10px; }
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input, textarea, select{ width:100%; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff; font-size:14px; }
+    textarea{ min-height:80px; resize:vertical; }
+    .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .btn{ appearance:none; border:0; background:var(--accent); color:#fff; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer; }
+    .btn:disabled{ opacity:.5; cursor:not-allowed; }
+    .small{ font-size:12px; color:var(--muted); }
+    .pill{ display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border:1px solid var(--line); border-radius:999px; background:#fff; }
+    .checklist{ display:flex; flex-wrap:wrap; gap:8px; }
+    .urls{ background:#0b1020; color:#e8f0ff; padding:12px; border-radius:12px; overflow:auto; }
+    .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>予約リンク作成（社内）</h1>
+      <div class="small">Calendars / Links シートに基づいて、token付きURLを発行します。</div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <div class="card">
+      <h2>① 参加者（Calendars）</h2>
+      <div id="members" class="checklist"></div>
+
+      <h2>②〜⑨ 設定</h2>
+      <div class="grid">
+        <div>
+          <label>② token（空なら自動生成）</label>
+          <input id="token" placeholder="例: oa3014 など（短いと便利）"/>
+        </div>
+
+        <div>
+          <label>③ 枠の時間幅（分）</label>
+          <input id="durationMin" type="number" min="5" step="5" value="30"/>
+        </div>
+
+        <div>
+          <label>④ 予約可能日数（何日先まで）</label>
+          <input id="dayRange" type="number" min="1" step="1" value="14"/>
+        </div>
+
+        <div>
+          <label>⑧ 選択可能曜日（例: 1,2,3,4,5 / Sun=0 or 7）</label>
+          <input id="weekdays" value="1,2,3,4,5"/>
+        </div>
+
+        <div>
+          <label>⑨ 営業時間（例: 10:00-18:00）</label>
+          <input id="hours" value="10:00-18:00"/>
+        </div>
+
+        <div class="row">
+          <span class="pill">
+            <input id="excludeHolidays" type="checkbox" checked />
+            <span class="small">祝日を除外</span>
+          </span>
+        </div>
+
+        <div>
+          <label>⑤ タイトル表記（{name} は予約者名）</label>
+          <input id="titleTemplate" value="【面接】{name}様"/>
+        </div>
+
+        <div>
+          <label>⑥ 位置情報（Zoom URLなど）</label>
+          <input id="locationTemplate" placeholder="https://us06web.zoom.us/..." />
+        </div>
+
+        <div style="grid-column:1 / -1">
+          <label>⑦ note（予約者には見せない運用メモもOK）</label>
+          <textarea id="note" placeholder="例：面接予約です（社内メモも可）"></textarea>
+        </div>
+
+        <div style="grid-column:1 / -1">
+          <label>（任意）overrides（JSON：OFF / WORK / 10:00-16:00）</label>
+          <textarea id="overrides" class="mono" placeholder='{"2026-02-25":"OFF","2026-02-26":"14:00-18:00"}'></textarea>
+        </div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="row">
+        <button id="createBtn" class="btn">作成する</button>
+        <span id="msg" class="small"></span>
+      </div>
+
+      <div style="height:12px"></div>
+      <div id="result" style="display:none;">
+        <h2>発行結果</h2>
+        <div class="urls mono" id="urls"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * ★ここだけ必ず設定してください★
+ * GAS の「ウェブアプリ」URL（/exec で終わるやつ）
+ */
+const GAS_WEBAPP_URL = "https://script.google.com/macros/s/XXXX/exec";
+
+/**
+ * 既存の予約UI（予約者が見る画面）のベースURL
+ * 例： https://toa-495.github.io/yumephoto-yoyaku-calendar/
+ */
+const BOOKING_UI_BASE = "https://toa-495.github.io/yumephoto-yoyaku-calendar/";
+
+/**
+ * この管理UI（別リポジトリ）のGitHub PagesベースURL
+ * 例： https://toa-495.github.io/yumephoto-yoyaku-admin/
+ */
+const ADMIN_BASE = "https://toa-495.github.io/yumephoto-yoyaku-admin/";
+
+async function post(action, payload){
+  const res = await fetch(GAS_WEBAPP_URL, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({action, ...payload})
+  });
+  const data = await res.json().catch(()=>({ok:false,error:"Invalid JSON"}));
+  if(!data.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+function el(id){ return document.getElementById(id); }
+
+async function loadCalendars(){
+  const box = el("members");
+  box.innerHTML = "読み込み中…";
+  const data = await post("getCalendars", {});
+  box.innerHTML = "";
+
+  data.calendars.forEach(c=>{
+    const wrap = document.createElement("label");
+    wrap.className = "pill";
+    wrap.style.cursor="pointer";
+
+    const cb = document.createElement("input");
+    cb.type="checkbox";
+    cb.value = c.key;
+    cb.checked = true;
+
+    const name = document.createElement("span");
+    name.textContent = `${c.name}（${c.key}）`;
+    name.className="small";
+
+    wrap.appendChild(cb);
+    wrap.appendChild(name);
+    box.appendChild(wrap);
+  });
+}
+
+function selectedMembers(){
+  return Array.from(document.querySelectorAll('#members input[type="checkbox"]:checked'))
+    .map(x=>x.value);
+}
+
+function buildUrls(token){
+  const bookingUrl = `${BOOKING_UI_BASE}?t=${encodeURIComponent(token)}`;
+  const settingUrl = `${ADMIN_BASE}setting.html?t=${encodeURIComponent(token)}`;
+  return { bookingUrl, settingUrl };
+}
+
+async function onCreate(){
+  const btn = el("createBtn");
+  const msg = el("msg");
+  msg.textContent = "";
+  btn.disabled = true;
+
+  try{
+    const members = selectedMembers();
+    if(members.length === 0) throw new Error("参加者が0人です");
+
+    const payload = {
+      token: el("token").value.trim(),
+      members,
+      durationMin: Number(el("durationMin").value || 30),
+      dayRange: Number(el("dayRange").value || 14),
+      weekdays: el("weekdays").value.trim(),
+      hours: el("hours").value.trim(),
+      excludeHolidays: el("excludeHolidays").checked,
+      titleTemplate: el("titleTemplate").value,
+      locationTemplate: el("locationTemplate").value,
+      note: el("note").value,
+      overrides: el("overrides").value.trim(),
+    };
+
+    // Linksに保存
+    const data = await post("createLinkV2", payload);
+    const token = data.token;
+
+    const { bookingUrl, settingUrl } = buildUrls(token);
+
+    el("result").style.display = "";
+    el("urls").textContent =
+`token: ${token}
+
+予約URL:
+${bookingUrl}
+
+不可枠設定URL:
+${settingUrl}`;
+
+    msg.textContent = "作成しました（上のURLをコピペして使ってOK）";
+  }catch(e){
+    msg.textContent = "エラー: " + e.message;
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+el("createBtn").addEventListener("click", onCreate);
+
+loadCalendars().catch(e=>{
+  el("members").innerHTML = "Calendarsの読み込みに失敗: " + e.message;
+});
+</script>
+</body>
+</html>
