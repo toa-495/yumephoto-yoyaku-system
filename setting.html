@@ -162,9 +162,6 @@ async function post(action, payload){
 div.className = "slot" + (isBlocked ? " blocked":"");
 div.innerHTML = `<span class="mono">${(s.startLocal||"").slice(11,16)}-${(s.endLocal||"")}</span><span class="small">${isBlocked ? "不可":"可"}</span>`;
 
-
-      div.className = "slot" + ((isBlocked || isBlocked2) ? " blocked":"");
-      div.innerHTML = `<span class="mono">${(s.startLocal||"").slice(11,16)}-${(s.endLocal||"")}</span><span class="small">${(isBlocked||isBlocked2) ? "不可":"可"}</span>`;
       div.onclick = ()=>{
         toggleSlot(s);
         renderSlots(dayMap);
