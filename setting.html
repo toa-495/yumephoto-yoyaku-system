@@ -156,10 +156,12 @@ async function post(action, payload){
     const daySlots = dayMap.get(selectedDayKey) || [];
     const blockedSet = new Set(blocks.map(b=>blockKey(b)));
 
-    daySlots.forEach(s=>{
+    daySlots.forEach((s, i)=>{
       const div = document.createElement("div");
-      const isBlocked = blockedSet.has(slotKey(s).replace("__", "__")); // 互換用
-      const isBlocked2 = blockedSet.has(s.start + "__" + s.end) || blockedSet.has(s.startIso + "__" + s.endIso);
+      const isBlocked = blockedSet.has(slotKey(s));
+div.className = "slot" + (isBlocked ? " blocked":"");
+div.innerHTML = `<span class="mono">${(s.startLocal||"").slice(11,16)}-${(s.endLocal||"")}</span><span class="small">${isBlocked ? "不可":"可"}</span>`;
+
 
       div.className = "slot" + ((isBlocked || isBlocked2) ? " blocked":"");
       div.innerHTML = `<span class="mono">${(s.startLocal||"").slice(11,16)}-${(s.endLocal||"")}</span><span class="small">${(isBlocked||isBlocked2) ? "不可":"可"}</span>`;
@@ -172,26 +174,26 @@ div.dataset.index = String(i);
 
 // ★ドラッグ開始
 div.onpointerdown = (e) => {
-  // 右クリック等を避けたい場合は必要に応じて
   isDragging = true;
   dragStartIndex = i;
   dragCurrentIndex = i;
   dragKeysApplied = new Set();
 
   const k = slotKey(s);
-  const blockedSet = buildBlockedSet();
-  dragMode = blockedSet.has(k) ? "unblock" : "block"; // 直感：不可から始めたら解除
+  dragMode = blockedSet.has(k) ? "unblock" : "block"; // ←ここがポイント
 
-  applyDragRange(daySlots); // まず1個反映
+  applyDragRange(daySlots, dayMap);
   div.setPointerCapture(e.pointerId);
 };
+
 
 // ★ドラッグ中（要素に入ったら範囲更新）
 div.onpointerenter = () => {
   if (!isDragging) return;
   dragCurrentIndex = i;
-  applyDragRange(daySlots);
+  applyDragRange(daySlots, dayMap);
 };
+
 
 // ★ドラッグ終了
 div.onpointerup = () => {
@@ -216,7 +218,7 @@ div.onpointerup = () => {
     else blocks.push({ startIso:s.start, endIso:s.end, reason:"" });
     dirty = true;
   }
-  function applyDragRange(daySlots){
+  function applyDragRange(daySlots, dayMap){
   const a = Math.min(dragStartIndex, dragCurrentIndex);
   const b = Math.max(dragStartIndex, dragCurrentIndex);
 
@@ -228,8 +230,7 @@ div.onpointerup = () => {
     if(dragKeysApplied.has(key)) continue;
     dragKeysApplied.add(key);
 
-    // blocks配列をスロット単位で増減（今の実装に合わせる）
-    const idx = blocks.findIndex(b => blockKey(b) === key);
+    const idx = blocks.findIndex(bl => blockKey(bl) === key);
 
     if(dragMode === "block"){
       if(idx < 0) blocks.push({ startIso: s.start, endIso: s.end, reason: "" });
@@ -239,14 +240,15 @@ div.onpointerup = () => {
   }
 
   dirty = true;
-  renderSlotsOnly(); // 反映
+  renderSlots(dayMap);
 }
+
 
 
   function blockWholeDay(dayMap){
     const daySlots = dayMap.get(selectedDayKey) || [];
     const existing = new Set(blocks.map(b=>blockKey(b)));
-    daySlots.forEach(s=>{
+    daySlots.forEach((s, i)=>{
       const k = s.start + "__" + s.end;
       if(!existing.has(k)) blocks.push({ startIso:s.start, endIso:s.end, reason:"" });
     });
