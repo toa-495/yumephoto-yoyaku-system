@@ -91,6 +91,12 @@
   let blocks = [];    // [{startIso,endIso,reason?}]
   let selectedDayKey = "";
   let dirty = false;
+  let isDragging = false;
+let dragMode = "block";   // "block" or "unblock"
+let dragStartIndex = -1;
+let dragCurrentIndex = -1;
+let dragKeysApplied = new Set(); // ドラッグ中に触ったkey（重複適用防止）
+
 
 async function post(action, payload){
   const res = await fetch(GAS_WEBAPP_URL, {
@@ -161,6 +167,40 @@ async function post(action, payload){
         toggleSlot(s);
         renderSlots(dayMap);
       };
+      // i は daySlots.forEach((s, i)=>{ ... }) の i
+div.dataset.index = String(i);
+
+// ★ドラッグ開始
+div.onpointerdown = (e) => {
+  // 右クリック等を避けたい場合は必要に応じて
+  isDragging = true;
+  dragStartIndex = i;
+  dragCurrentIndex = i;
+  dragKeysApplied = new Set();
+
+  const k = slotKey(s);
+  const blockedSet = buildBlockedSet();
+  dragMode = blockedSet.has(k) ? "unblock" : "block"; // 直感：不可から始めたら解除
+
+  applyDragRange(daySlots); // まず1個反映
+  div.setPointerCapture(e.pointerId);
+};
+
+// ★ドラッグ中（要素に入ったら範囲更新）
+div.onpointerenter = () => {
+  if (!isDragging) return;
+  dragCurrentIndex = i;
+  applyDragRange(daySlots);
+};
+
+// ★ドラッグ終了
+div.onpointerup = () => {
+  isDragging = false;
+  dragStartIndex = -1;
+  dragCurrentIndex = -1;
+  dragKeysApplied = new Set();
+};
+
       box.appendChild(div);
     });
 
@@ -176,6 +216,32 @@ async function post(action, payload){
     else blocks.push({ startIso:s.start, endIso:s.end, reason:"" });
     dirty = true;
   }
+  function applyDragRange(daySlots){
+  const a = Math.min(dragStartIndex, dragCurrentIndex);
+  const b = Math.max(dragStartIndex, dragCurrentIndex);
+
+  for(let k=a; k<=b; k++){
+    const s = daySlots[k];
+    if(!s) continue;
+
+    const key = slotKey(s);
+    if(dragKeysApplied.has(key)) continue;
+    dragKeysApplied.add(key);
+
+    // blocks配列をスロット単位で増減（今の実装に合わせる）
+    const idx = blocks.findIndex(b => blockKey(b) === key);
+
+    if(dragMode === "block"){
+      if(idx < 0) blocks.push({ startIso: s.start, endIso: s.end, reason: "" });
+    }else{
+      if(idx >= 0) blocks.splice(idx, 1);
+    }
+  }
+
+  dirty = true;
+  renderSlotsOnly(); // 反映
+}
+
 
   function blockWholeDay(dayMap){
     const daySlots = dayMap.get(selectedDayKey) || [];
