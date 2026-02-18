@@ -130,7 +130,7 @@ const ADMIN_BASE = "https://toa-495.github.io/yumephoto-yoyaku-admin/";
 async function post(action, payload){
   const res = await fetch(GAS_WEBAPP_URL, {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: {"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify({action, ...payload})
   });
   const data = await res.json().catch(()=>({ok:false,error:"Invalid JSON"}));
