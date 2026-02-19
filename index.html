@@ -254,7 +254,7 @@ async function onCreate_(){
   try{
     const r = await api_(payload);
     const token = r.token;
-    const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?token=" + encodeURIComponent(token);
+    const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?t=" + encodeURIComponent(token);
 
     $("result").style.display = "block";
     $("urls").textContent = [
