@@ -109,6 +109,10 @@
 <div id="result" style="display:none;">
   <h2>発行結果</h2>
   <div class="urls mono" id="urls"></div>
+  
+<div style="height:10px"></div>
+<div class="small">予約ページURL（クリックでコピー）</div>
+<div id="copyBookingUrl" class="urls mono" style="cursor:pointer; user-select:all;"></div>
 
   <div style="height:12px"></div>
   <button id="toSettingBtn" class="btn" style="display:none;">
@@ -218,6 +222,29 @@ function escapeHtml_(s){
   }[m]));
 }
 
+async function copyToClipboard_(text){
+  try{
+    await navigator.clipboard.writeText(text);
+    return true;
+  }catch(e){
+    // フォールバック（古いブラウザなど）
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      return true;
+    }catch(_e){
+      return false;
+    }
+  }
+}
+
+
 async function init_(){
   renderDow_();
   const res = await api_({ action:"getCalendars" });
@@ -225,6 +252,8 @@ async function init_(){
 }
 
 async function onCreate_(){
+  $("copyBookingUrl").textContent = "";
+  $("copyBookingUrl").onclick = null;
   $("msg").textContent = "";
   $("result").style.display = "none";
   $("toSettingBtn").style.display = "none";
@@ -269,6 +298,14 @@ toBtn.style.display = "inline-block";
 toBtn.onclick = () => { window.location.href = settingUrl; };
 
     const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?t=" + encodeURIComponent(token);
+    // 予約URLを表示して、クリックでコピー
+const copyEl = $("copyBookingUrl");
+copyEl.textContent = bookingUrl;
+copyEl.onclick = async () => {
+  const ok = await copyToClipboard_(bookingUrl);
+  $("msg").textContent = ok ? "予約ページURLをコピーしました。" : "コピーに失敗しました（手動で選択してコピーしてください）";
+};
+
 
     $("result").style.display = "block";
     $("urls").textContent = [
