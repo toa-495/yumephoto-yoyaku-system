@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <meta name="robots" content="noindex,nofollow"/>
-  <title>予約リンク作成（社内）</title>
+  <title>予約リンク作成ページ</title>
   <style>
     :root{ --bg:#f6f7fb; --card:#fff; --text:#222; --muted:#666; --line:#e7e7ef; --accent:#2b6cff; --bad:#e5484d; }
     body{ margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif; background:var(--bg); color:var(--text); }
@@ -86,13 +86,17 @@
       <h2>⑤ 何日先まで予約をOKとするか？</h2>
       <input id="dayRange" type="number" min="1" step="1" value="14"/>
 
-      <h2>⑥ 位置情報（Zoom URL、開催場所など）</h2>
+      
+      <h2>⑥ 予定のタイトル（{name} は予約者名）</h2>
+      <input id="titleTemplate" placeholder="例：【面接】{name}様" value="【面接】{name}様"/>
+
+<h2>⑦ 位置情報（Zoom URL、開催場所など）</h2>
       <input id="locationTemplate" placeholder="https://us06web.zoom.us/... / 会議室A など" />
 
-      <h2>⑦ URLトークン（任意・空なら自動生成）</h2>
+      <h2>⑧ URLトークン（任意・空なら自動生成）</h2>
       <input id="token" placeholder="例: oa3014（短いと便利）"/>
 
-      <h2>⑧ 社内用メモ</h2>
+      <h2>⑨ 社内用メモ</h2>
       <textarea id="note" placeholder="例：面接予約です（社内メモ）"></textarea>
 
       <div style="height:12px"></div>
@@ -142,7 +146,7 @@ function $(id){ return document.getElementById(id); }
 async function api_(payload){
   const res = await fetch(GAS_WEBAPP_URL, {
     method: "POST",
-    headers: { "Content-Type":"application/json" },
+    headers: {"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify(payload),
   });
   const json = await res.json().catch(()=>null);
@@ -237,7 +241,7 @@ async function onCreate_(){
     note: String($("note").value || "").trim(),
 
     // UIから外したが、GASが期待するので固定値で渡す
-    titleTemplate: DEFAULT_TITLE_TEMPLATE,
+    titleTemplate: String($("titleTemplate").value || "").trim(),
 
     // overridesはUIから削除（必要になったら復活OK）
     overrides: "{}",
