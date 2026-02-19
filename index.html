@@ -290,15 +290,24 @@ async function onCreate_(){
 
   try{
     const r = await api_(payload);
-    const token = r.token;
-    const settingUrl = SETTING_UI_BASE + "?t=" + encodeURIComponent(token);
 
+// ★確定トークン：GAS返却 > 手入力（payload.token）
+// （どっちも空ならエラー）
+const issuedToken = String(r.token || payload.token || "").trim();
+if (!issuedToken) throw new Error("tokenが空です（手入力するか、GASの返却を確認してください）");
+
+// setting URL
+const settingUrl = SETTING_UI_BASE + "?t=" + encodeURIComponent(issuedToken);
+
+// settingボタン
 const toBtn = $("toSettingBtn");
 toBtn.style.display = "inline-block";
 toBtn.onclick = () => { window.location.href = settingUrl; };
 
-    const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?t=" + encodeURIComponent(token);
-    // 予約URLを表示して、クリックでコピー
+// booking URL
+const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?t=" + encodeURIComponent(issuedToken);
+
+// 予約URLを表示して、クリックでコピー
 const copyEl = $("copyBookingUrl");
 copyEl.textContent = bookingUrl;
 copyEl.onclick = async () => {
@@ -306,11 +315,11 @@ copyEl.onclick = async () => {
   $("msg").textContent = ok ? "予約ページURLをコピーしました。" : "コピーに失敗しました（手動で選択してコピーしてください）";
 };
 
+$("result").style.display = "block";
+$("urls").textContent = [
+  "token: " + issuedToken
+].join("\n");
 
-    $("result").style.display = "block";
-    $("urls").textContent = [
-      "token: " + token
-    ].join("\n");
 
     $("msg").textContent = "作成しました。";
   }catch(e){
