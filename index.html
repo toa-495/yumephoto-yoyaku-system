@@ -106,10 +106,16 @@
       </div>
 
       <div style="height:12px"></div>
-      <div id="result" style="display:none;">
-        <h2>発行結果</h2>
-        <div class="urls mono" id="urls"></div>
-      </div>
+<div id="result" style="display:none;">
+  <h2>発行結果</h2>
+  <div class="urls mono" id="urls"></div>
+
+  <div style="height:12px"></div>
+  <button id="toSettingBtn" class="btn" style="display:none;">
+    不可枠の選択に進む
+  </button>
+</div>
+
     </div>
   </div>
 
@@ -124,6 +130,7 @@ const GAS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyJAPDsCu9QtgbZb
  * 予約者が見る画面のベースURL（tokenを付けて発行します）
  */
 const BOOKING_UI_BASE = "https://toa-495.github.io/yumephoto-yoyaku-calendar/";
+const SETTING_UI_BASE = "https://toa-495.github.io/yumephoto-yoyaku-system/setting.html";
 
 /**
  * Linksシートに書き込む「タイトルテンプレ」。
@@ -192,7 +199,7 @@ function renderMembers_(calendars){
     el.className = "memberItem";
     // 「(key)」が長い場合も1行で省略
     el.innerHTML = `
-      <input type="checkbox" value="${escapeHtml_(c.key)}" checked />
+      <input type="checkbox" value="${escapeHtml_(c.key)}" />
       <span class="memberLabel">${escapeHtml_(c.name)} (${escapeHtml_(c.key)})</span>
     `;
     wrap.appendChild(el);
@@ -220,6 +227,7 @@ async function init_(){
 async function onCreate_(){
   $("msg").textContent = "";
   $("result").style.display = "none";
+  $("toSettingBtn").style.display = "none";
   $("urls").textContent = "";
 
   const members = getSelectedMembers_();
@@ -254,6 +262,12 @@ async function onCreate_(){
   try{
     const r = await api_(payload);
     const token = r.token;
+    const settingUrl = SETTING_UI_BASE + "?t=" + encodeURIComponent(token);
+
+const toBtn = $("toSettingBtn");
+toBtn.style.display = "inline-block";
+toBtn.onclick = () => { window.location.href = settingUrl; };
+
     const bookingUrl = BOOKING_UI_BASE.replace(/\/?$/, "/") + "?t=" + encodeURIComponent(token);
 
     $("result").style.display = "block";
